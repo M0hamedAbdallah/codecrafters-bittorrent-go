@@ -2,9 +2,10 @@ package main
 
 import (
 	// Uncomment this line to pass the first stage
-	// "encoding/json"
+	"encoding/json"
 	"fmt"
 	"os"
+
 	// "reflect" // to reflect variables to anthor type
 	"strconv"
 	"unicode"
@@ -14,7 +15,7 @@ import (
 // Example:
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
-func decodeBencode(bencodedString string) (interface{}, error) {
+func decodeBencode(bencodedString string) (interface{}, error, string) {
 	if unicode.IsDigit(rune(bencodedString[0])) {
 		var firstColonIndex int
 
@@ -29,14 +30,14 @@ func decodeBencode(bencodedString string) (interface{}, error) {
 
 		length, err := strconv.Atoi(lengthStr)
 		if err != nil {
-			return "", err
+			return "", err, "error"
 		}
 
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil
+		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil, "string"
 	} else if rune(bencodedString[0]) == rune('i') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
-		return bencodedString[1 : len(bencodedString)-1], nil
+		return bencodedString[1 : len(bencodedString)-1], nil, "int"
 	} else {
-		return "", fmt.Errorf("Only strings are supported at the moment")
+		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
 }
 
@@ -51,13 +52,18 @@ func main() {
 
 		bencodedValue := os.Args[2]
 
-		decoded, err := decodeBencode(bencodedValue)
+		decoded, err, types := decodeBencode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-
-		fmt.Println(decoded)
+		if types == "string" {
+			jsonOutput, _ := json.Marshal(decoded)
+			fmt.Println(string(jsonOutput))
+		}
+		if types == "int" {
+			fmt.Println(decoded)
+		}
 
 	} else {
 		fmt.Println("Unknown command: " + command)
