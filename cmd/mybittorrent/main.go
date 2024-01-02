@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
 	// "reflect" // to reflect variables to anthor type
 	"strconv"
 	"unicode"
@@ -35,7 +34,24 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 
 		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil, "string"
 	} else if rune(bencodedString[0]) == rune('i') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
+
 		return bencodedString[1 : len(bencodedString)-1], nil, "int"
+	} else if rune(bencodedString[0]) == rune('l') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
+		decoded, err, _ := decodeBencode(bencodedString[1:])
+		if err != nil {
+			return "", err, "error"
+		}
+
+		length := len(decoded.(string))
+
+		lengthOfInteger := len(strconv.Itoa(length))
+
+		decode2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+2 : len(bencodedString)-1])
+		if err != nil {
+			return "", err, "error"
+		}
+
+		return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decode2.(string) + "]"), err, "array"
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
@@ -61,7 +77,7 @@ func main() {
 			jsonOutput, _ := json.Marshal(decoded)
 			fmt.Println(string(jsonOutput))
 		}
-		if types == "int" {
+		if types == "int" || types == "array" {
 			fmt.Println(decoded)
 		}
 
