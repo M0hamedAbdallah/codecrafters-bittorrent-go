@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+
 	// "reflect" // to reflect variables to anthor type
 	"strconv"
 	"unicode"
@@ -52,8 +53,8 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 		}
 
 		return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decode2.(string) + "]"), err, "array"
-	}else if rune(bencodedString[0]) == rune('d') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
-		return "",nil,"int"
+	} else if rune(bencodedString[0]) == rune('d') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
+		return "", nil, ""
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
