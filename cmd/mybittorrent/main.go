@@ -52,6 +52,8 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 		}
 
 		return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decode2.(string) + "]"), err, "array"
+	}else if rune(bencodedString[0]) == rune('d') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
+		return "",nil,"int"
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
