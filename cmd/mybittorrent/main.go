@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
 	// "reflect" // to reflect variables to anthor type
 	"strconv"
 	"unicode"
@@ -29,6 +28,7 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 		lengthStr := bencodedString[:firstColonIndex]
 
 		length, err := strconv.Atoi(lengthStr)
+
 		if err != nil {
 			return "", err, "error"
 		}
@@ -47,7 +47,7 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 		}
 		return result, err, types
 	} else if rune(bencodedString[0]) == rune('d') {
-		return "", nil, ""
+		return decodeDictionary(bencodedString[1 : len(bencodedString)-1])
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
@@ -73,7 +73,7 @@ func decodeLists(bencodedString string) (interface{}, error, string) {
 		return "[]", nil, "int"
 	}
 
-	decoded, err, types := decodeBencode(bencodedString)
+	decoded, err, types := decodeBencode(bencodedString[0:])
 
 	if err != nil {
 		return "", err, "error"
@@ -85,7 +85,7 @@ func decodeLists(bencodedString string) (interface{}, error, string) {
 		lengthOfInteger = len(strconv.Itoa(length))
 
 		if (lengthOfInteger + length + 2) < len(bencodedString) {
-			decoded2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+2 : len(bencodedString)-1])
+			decoded2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+1:])
 			if err != nil {
 				return "", err, "error"
 			}
@@ -108,6 +108,30 @@ func decodeLists(bencodedString string) (interface{}, error, string) {
 	}
 
 	return fmt.Sprint("[" + decoded.(string) + "]"), err, "array"
+}
+
+func decodeDictionary(bencodedString string) (interface{}, error, string) {
+	result := make(map[string]interface{})
+
+	for len(bencodedString) > 0 {
+		key, err, _ := decodeBencode(bencodedString)
+		if err != nil {
+			return nil, err, "error"
+		}
+
+		bencodedString = bencodedString[len(key.(string))+2:]
+
+		value, err, _ := decodeBencode(bencodedString)
+		if err != nil {
+			return nil, err, "error"
+		}
+
+		bencodedString = bencodedString[len(value.(string)):]
+
+		result[key.(string)] = value
+	}
+
+	return result, nil, "dictionary"
 }
 
 func main() {
