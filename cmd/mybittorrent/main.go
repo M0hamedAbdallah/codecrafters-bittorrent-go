@@ -34,41 +34,80 @@ func decodeBencode(bencodedString string) (interface{}, error, string) {
 		}
 
 		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil, "string"
-	} else if rune(bencodedString[0]) == rune('i') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
-
-		return bencodedString[1 : len(bencodedString)-1], nil, "int"
-	} else if rune(bencodedString[0]) == rune('l') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
-		result, err, types := decodeLists(bencodedString)
+	} else if rune(bencodedString[0]) == rune('i') {
+		result, err, types := decodeInt(bencodedString)
 		if err != nil {
 			return "", err, "error"
 		}
 		return result, err, types
-	} else if rune(bencodedString[0]) == rune('d') && rune(bencodedString[len(bencodedString)-1]) == rune('e') {
+	} else if rune(bencodedString[0]) == rune('l') {
+		result, err, types := decodeLists(bencodedString[1 : len(bencodedString)-1])
+		if err != nil {
+			return "", err, "error"
+		}
+		return result, err, types
+	} else if rune(bencodedString[0]) == rune('d') {
 		return "", nil, ""
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
 	}
 }
 
+func decodeInt(bencodedString string) (interface{}, error, string) {
+	var charindex int
+	for i := 0; i < len(bencodedString); i++ {
+		if bencodedString[i] == 'e' {
+			charindex = i
+			break
+		}
+	}
+	return bencodedString[1:charindex], nil, "int"
+}
+
 func decodeLists(bencodedString string) (interface{}, error, string) {
-	if(len(bencodedString)==2){
-		return "[]",nil,"int"
+	// var index int = 1
+	var length int
+	var lengthOfInteger int
+
+	if len(bencodedString) == 2 {
+		return "[]", nil, "int"
 	}
-	decoded, err, _ := decodeBencode(bencodedString[1:])
+
+	decoded, err, types := decodeBencode(bencodedString)
+
 	if err != nil {
 		return "", err, "error"
 	}
 
-	length := len(decoded.(string))
+	length = len(decoded.(string))
 
-	lengthOfInteger := len(strconv.Itoa(length))
+	if types == "string" {
+		lengthOfInteger = len(strconv.Itoa(length))
 
-	decode2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+2 : len(bencodedString)-1])
-	if err != nil {
-		return "", err, "error"
+		if (lengthOfInteger + length + 2) < len(bencodedString) {
+			decoded2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+2 : len(bencodedString)-1])
+			if err != nil {
+				return "", err, "error"
+			}
+
+			return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decoded2.(string) + "]"), err, "array"
+		}
 	}
 
-	return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decode2.(string) + "]"), err, "array"
+	if types == "int" {
+		decoded2, err, types := decodeBencode(bencodedString[length+2:])
+		if err != nil {
+			return "", err, "error"
+		}
+
+		if types == "string" {
+			decoded2 = "\"" + decoded2.(string) + "\""
+		}
+
+		return fmt.Sprint("[" + decoded.(string) + "," + decoded2.(string) + "]"), err, "array"
+	}
+
+	return fmt.Sprint("[" + decoded.(string) + "]"), err, "array"
 }
 
 func main() {
