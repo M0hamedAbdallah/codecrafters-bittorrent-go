@@ -69,7 +69,7 @@ func decodeLists(bencodedString string) (interface{}, error, string) {
 	var length int
 	var lengthOfInteger int
 
-	if len(bencodedString) == 2 {
+	if len(bencodedString) == 0 {
 		return "[]", nil, "int"
 	}
 
