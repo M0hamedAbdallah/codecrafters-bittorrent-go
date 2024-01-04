@@ -14,46 +14,42 @@ import (
 // Example:
 // - 5:hello -> hello
 // - 10:hello12345 -> hello12345
-func decodeBencode(bencodedString string) (interface{}, error, string) {
+func decodeBencode(bencodedString string) (interface{}, error, int) {
 	if unicode.IsDigit(rune(bencodedString[0])) {
-		var firstColonIndex int
-
-		for i := 0; i < len(bencodedString); i++ {
-			if bencodedString[i] == ':' {
-				firstColonIndex = i
-				break
-			}
-		}
-
-		lengthStr := bencodedString[:firstColonIndex]
-
-		length, err := strconv.Atoi(lengthStr)
-
-		if err != nil {
-			return "", err, "error"
-		}
-
-		return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil, "string"
+		return decodeString(bencodedString)
 	} else if rune(bencodedString[0]) == rune('i') {
-		result, err, types := decodeInt(bencodedString)
-		if err != nil {
-			return "", err, "error"
-		}
-		return result, err, types
+		return decodeInt(bencodedString)
 	} else if rune(bencodedString[0]) == rune('l') {
-		result, err, types := decodeLists(bencodedString[1 : len(bencodedString)-1])
-		if err != nil {
-			return "", err, "error"
-		}
-		return result, err, types
+		return decodeLists(bencodedString)
 	} else if rune(bencodedString[0]) == rune('d') {
-		return decodeDictionary(bencodedString[1 : len(bencodedString)-1])
+		return decodeDictionary(bencodedString)
 	} else {
-		return "", fmt.Errorf("Only strings are supported at the moment"), "error"
+		return "", fmt.Errorf("Only strings are supported at the moment"), 0
 	}
 }
 
-func decodeInt(bencodedString string) (interface{}, error, string) {
+func decodeString(bencodedString string) (interface{}, error, int) {
+	var firstColonIndex int
+
+	for i := 0; i < len(bencodedString); i++ {
+		if bencodedString[i] == ':' {
+			firstColonIndex = i
+			break
+		}
+	}
+
+	lengthStr := bencodedString[:firstColonIndex]
+
+	length, err := strconv.Atoi(lengthStr)
+
+	if err != nil {
+		return "", err, 0
+	}
+
+	return bencodedString[firstColonIndex+1 : firstColonIndex+1+length], nil, firstColonIndex + 1 + length
+}
+
+func decodeInt(bencodedString string) (int, error, int) {
 	var charindex int
 	for i := 0; i < len(bencodedString); i++ {
 		if bencodedString[i] == 'e' {
@@ -61,69 +57,51 @@ func decodeInt(bencodedString string) (interface{}, error, string) {
 			break
 		}
 	}
-	return bencodedString[1:charindex], nil, "int"
-}
-
-func decodeLists(bencodedString string) (interface{}, error, string) {
-	// var index int = 1
-	var length int
-	var lengthOfInteger int
-
-	if len(bencodedString) == 0 {
-		return "[]", nil, "int"
-	}
-
-	decoded, err, types := decodeBencode(bencodedString[0:])
-
+	n , err :=strconv.Atoi(bencodedString[1:charindex])
 	if err != nil {
-		return "", err, "error"
+		return 0,  fmt.Errorf("failed to decode integer %s: %v", bencodedString , err),0
 	}
 
-	length = len(decoded.(string))
-
-	if types == "string" {
-		lengthOfInteger = len(strconv.Itoa(length))
-
-		if (lengthOfInteger + length + 2) < len(bencodedString) {
-			decoded2, err, _ := decodeBencode(bencodedString[lengthOfInteger+length+1:])
-			if err != nil {
-				return "", err, "error"
-			}
-
-			return fmt.Sprint("[" + "\"" + decoded.(string) + "\"" + "," + decoded2.(string) + "]"), err, "array"
-		}
-	}
-
-	if types == "int" {
-		decoded2, err, types := decodeBencode(bencodedString[length+2:])
-		if err != nil {
-			return "", err, "error"
-		}
-
-		if types == "string" {
-			decoded2 = "\"" + decoded2.(string) + "\""
-		}
-
-		return fmt.Sprint("[" + decoded.(string) + "," + decoded2.(string) + "]"), err, "array"
-	}
-
-	return fmt.Sprint("[" + decoded.(string) + "]"), err, "array"
+	return  n , nil, charindex + 1
 }
 
-func decodeDictionary(bencodedString string) (interface{}, error, string) {
+func decodeLists(bencodedString string) ([]interface{}, error, int) {
+	array := make([]interface{}, 0)
+	i := 1
+	for {
+		if i >= len(bencodedString) {
+			return nil, fmt.Errorf("Not found"), i
+		}
+
+		if bencodedString[i] == 'e' {
+			break
+		}
+
+		value, err, n := decodeBencode(bencodedString[i:])
+		if err != nil {
+			return nil, err , i
+		}
+
+		i += n
+		array = append(array, value)
+	}
+	return array, nil, i+1
+}
+
+func decodeDictionary(bencodedString string) (interface{}, error, int) {
 	result := make(map[string]interface{})
 
 	for len(bencodedString) > 0 {
 		key, err, _ := decodeBencode(bencodedString)
 		if err != nil {
-			return nil, err, "error"
+			return nil, err, 0
 		}
 
 		bencodedString = bencodedString[len(key.(string))+2:]
 
 		value, err, _ := decodeBencode(bencodedString)
 		if err != nil {
-			return nil, err, "error"
+			return nil, err, 0
 		}
 
 		bencodedString = bencodedString[len(value.(string)):]
@@ -131,7 +109,7 @@ func decodeDictionary(bencodedString string) (interface{}, error, string) {
 		result[key.(string)] = value
 	}
 
-	return result, nil, "dictionary"
+	return result, nil, 0
 }
 
 func main() {
@@ -145,18 +123,14 @@ func main() {
 
 		bencodedValue := os.Args[2]
 
-		decoded, err, types := decodeBencode(bencodedValue)
+		decoded, err, _ := decodeBencode(bencodedValue)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
-		if types == "string" {
-			jsonOutput, _ := json.Marshal(decoded)
-			fmt.Println(string(jsonOutput))
-		}
-		if types == "int" || types == "array" {
-			fmt.Println(decoded)
-		}
+
+		jsonOutput, _ := json.Marshal(decoded)
+		fmt.Println(string(jsonOutput))
 
 	} else {
 		fmt.Println("Unknown command: " + command)
