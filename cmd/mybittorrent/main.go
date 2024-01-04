@@ -21,7 +21,7 @@ func decodeBencode(bencodedString string) (interface{}, error, int) {
 		return decodeInt(bencodedString)
 	} else if rune(bencodedString[0]) == rune('l') {
 		return decodeLists(bencodedString)
-	} else if rune(bencodedString[0]) == rune('d') {
+	} else if bencodedString[0] == 'd' {
 		return decodeDictionary(bencodedString)
 	} else {
 		return "", fmt.Errorf("Only strings are supported at the moment"), 0
@@ -90,26 +90,32 @@ func decodeLists(bencodedString string) ([]interface{}, error, int) {
 
 func decodeDictionary(bencodedString string) (interface{}, error, int) {
 	result := make(map[string]interface{})
+	i := 1
+	for  {
+		if i >= len(bencodedString) {
+			return nil, fmt.Errorf("Not found"), i
+		}
 
-	for len(bencodedString) > 0 {
-		key, err, _ := decodeBencode(bencodedString)
+		if bencodedString[i] == 'e' {
+			break
+		}
+
+		key, err, n := decodeBencode(bencodedString[i:])
 		if err != nil {
 			return nil, err, 0
 		}
+		i += n
 
-		bencodedString = bencodedString[len(key.(string))+2:]
-
-		value, err, _ := decodeBencode(bencodedString)
-		if err != nil {
-			return nil, err, 0
+		value, err2, n2 := decodeBencode(bencodedString[i:])
+		if err2 != nil {
+			return nil, err2, 0
 		}
 
-		bencodedString = bencodedString[len(value.(string)):]
-
+		i += n2
 		result[key.(string)] = value
 	}
 
-	return result, nil, 0
+	return result, nil, i+1
 }
 
 func main() {
