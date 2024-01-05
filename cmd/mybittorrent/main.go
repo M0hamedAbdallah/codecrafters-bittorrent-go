@@ -2,9 +2,11 @@ package main
 
 import (
 	// Uncomment this line to pass the first stage
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
+
 	// "reflect" // to reflect variables to anthor type
 	"strconv"
 	"unicode"
@@ -57,12 +59,12 @@ func decodeInt(bencodedString string) (int, error, int) {
 			break
 		}
 	}
-	n , err :=strconv.Atoi(bencodedString[1:charindex])
+	n, err := strconv.Atoi(bencodedString[1:charindex])
 	if err != nil {
-		return 0,  fmt.Errorf("failed to decode integer %s: %v", bencodedString , err),0
+		return 0, fmt.Errorf("failed to decode integer %s: %v", bencodedString, err), 0
 	}
 
-	return  n , nil, charindex + 1
+	return n, nil, charindex + 1
 }
 
 func decodeLists(bencodedString string) ([]interface{}, error, int) {
@@ -79,19 +81,19 @@ func decodeLists(bencodedString string) ([]interface{}, error, int) {
 
 		value, err, n := decodeBencode(bencodedString[i:])
 		if err != nil {
-			return nil, err , i
+			return nil, err, i
 		}
 
 		i += n
 		array = append(array, value)
 	}
-	return array, nil, i+1
+	return array, nil, i + 1
 }
 
 func decodeDictionary(bencodedString string) (interface{}, error, int) {
 	result := make(map[string]interface{})
 	i := 1
-	for  {
+	for {
 		if i >= len(bencodedString) {
 			return nil, fmt.Errorf("Not found"), i
 		}
@@ -115,7 +117,7 @@ func decodeDictionary(bencodedString string) (interface{}, error, int) {
 		result[key.(string)] = value
 	}
 
-	return result, nil, i+1
+	return result, nil, i + 1
 }
 
 func main() {
@@ -138,6 +140,46 @@ func main() {
 		jsonOutput, _ := json.Marshal(decoded)
 		fmt.Println(string(jsonOutput))
 
+	} else if command == "info" {
+		file, err := os.Open(os.Args[2])
+		if err != nil {
+			fmt.Println(err)
+		}
+		defer file.Close()
+
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			decoded, err, _ := decodeBencode(scanner.Text())
+			if err != nil {
+				fmt.Println(err)
+				return
+			}
+
+			jsonOutput, _ := json.Marshal(decoded)
+			var data map[string]interface{}
+			err = json.Unmarshal([]byte(jsonOutput), &data)
+			if err != nil {
+				fmt.Printf("could not unmarshal json: %s\n", err)
+				return
+			}
+
+			jsonOutput2, _ := json.Marshal(data["info"])
+			var data2 map[string]interface{}
+			err = json.Unmarshal([]byte(jsonOutput2), &data2)
+			if err != nil {
+				fmt.Printf("could not unmarshal json: %s\n", err)
+				return
+			}
+
+			fmt.Printf(
+				"Tracker URL: %v\nLength: %v\n",
+				data["announce"],
+				data2["length"])
+		}
+
+		if err := scanner.Err(); err != nil {
+			fmt.Println(err)
+		}
 	} else {
 		fmt.Println("Unknown command: " + command)
 		os.Exit(1)
